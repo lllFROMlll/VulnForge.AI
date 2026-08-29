@@ -1,0 +1,61 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_dark"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🔌 Port Scanner"
+        android:textColor="@color/secondary"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <EditText
+        android:id="@+id/port_scan_target"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="IP ou domínio (ex: scanme.nmap.org)"
+        android:background="@drawable/input_background"
+        android:padding="12dp"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary" />
+
+    <Button
+        android:id="@+id/port_scan_quick"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Escanear portas comuns"
+        android:backgroundTint="@color/primary"
+        android:layout_marginTop="10dp" />
+
+    <Button
+        android:id="@+id/port_scan_full"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Escanear todas as portas"
+        android:backgroundTint="@color/secondary"
+        android:layout_marginTop="6dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:id="@+id/port_scan_result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/surface_dark"
+            android:padding="12dp"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:lineSpacingExtra="4dp" />
+
+    </ScrollView>
+
+</LinearLayout>

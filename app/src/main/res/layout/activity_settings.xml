@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_dark">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚙️ Configurações"
+            android:textColor="@color/secondary"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Chave da API (OpenRouter)"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/settings_api_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textPassword"
+            android:hint="Cole sua chave aqui"
+            android:background="@drawable/input_background"
+            android:padding="12dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:layout_marginTop="6dp" />
+
+        <Button
+            android:id="@+id/settings_load_models"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Carregar modelos disponíveis"
+            android:backgroundTint="@color/primary"
+            android:layout_marginTop="10dp" />
+
+        <TextView
+            android:id="@+id/settings_model_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Escolha o modelo (toque para selecionar):"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <EditText
+                android:id="@+id/settings_model_fallback"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
+                android:hint="ou digite o id do modelo"
+                android:background="@drawable/input_background"
+                android:padding="10dp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_secondary" />
+
+            <Button
+                android:id="@+id/settings_use_fallback"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Usar"
+                android:backgroundTint="@color/secondary"
+                android:layout_marginStart="6dp" />
+
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/settings_model_list"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:layout_marginTop="8dp"
+            android:scrollbars="vertical" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Modo de uso"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <RadioGroup
+            android:id="@+id/settings_mode_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="6dp">
+
+            <RadioButton
+                android:id="@+id/settings_mode_iniciante"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Iniciante - explica tudo com palavras simples"
+                android:textColor="@color/text_primary" />
+
+            <RadioButton
+                android:id="@+id/settings_mode_intermediario"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Intermediário - explica de forma rápida"
+                android:textColor="@color/text_primary" />
+
+            <RadioButton
+                android:id="@+id/settings_mode_profissional"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Profissional - executa sem ensinar"
+                android:textColor="@color/text_primary" />
+
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/settings_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="@color/success_green"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp" />
+
+        <Button
+            android:id="@+id/settings_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Salvar configurações"
+            android:backgroundTint="@color/success_green"
+            android:layout_marginTop="16dp" />
+
+    </LinearLayout>
+
+</ScrollView>
