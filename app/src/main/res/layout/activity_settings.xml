@@ -19,6 +19,7 @@
             android:textStyle="bold"
             android:layout_marginBottom="16dp" />
 
+        <!-- API KEY -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -93,10 +94,11 @@
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/settings_model_list"
             android:layout_width="match_parent"
-            android:layout_height="300dp"
+            android:layout_height="250dp"
             android:layout_marginTop="8dp"
             android:scrollbars="vertical" />
 
+        <!-- MODO DE USO (perfil global) -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -116,14 +118,14 @@
                 android:id="@+id/settings_mode_iniciante"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Iniciante - explica tudo com palavras simples"
+                android:text="Iniciante - explica tudo"
                 android:textColor="@color/text_primary" />
 
             <RadioButton
                 android:id="@+id/settings_mode_intermediario"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Intermediário - explica de forma rápida"
+                android:text="Intermediário - explica rápido"
                 android:textColor="@color/text_primary" />
 
             <RadioButton
@@ -134,6 +136,108 @@
                 android:textColor="@color/text_primary" />
 
         </RadioGroup>
+
+        <!-- MODO DO CHAT (Auto / manual) -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Modo do chat"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+
+        <RadioGroup
+            android:id="@+id/settings_chatmode_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="6dp">
+
+            <RadioButton
+                android:id="@+id/settings_chatmode_auto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Automático (detecta pelo texto)"
+                android:textColor="@color/text_primary" />
+
+            <RadioButton
+                android:id="@+id/settings_chatmode_aprendiz"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Aprendiz"
+                android:textColor="@color/text_primary" />
+
+            <RadioButton
+                android:id="@+id/settings_chatmode_intermediario"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Intermediário"
+                android:textColor="@color/text_primary" />
+
+            <RadioButton
+                android:id="@+id/settings_chatmode_profissional"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Profissional"
+                android:textColor="@color/text_primary" />
+
+        </RadioGroup>
+
+        <!-- MODO CONFIANTE -->
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/settings_confident"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modo Confiante (sem confirmações)"
+            android:textColor="@color/text_primary"
+            android:layout_marginTop="8dp" />
+
+        <!-- MEMÓRIA PERSISTENTE -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Uso da memória persistente"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <EditText
+            android:id="@+id/settings_memory_days"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:hint="Prazo em dias (padrão 30)"
+            android:background="@drawable/input_background"
+            android:padding="12dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:id="@+id/settings_memory_warn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚠️ Atenção: ao expirar o prazo, todos os dados salvos (progresso e vulnerabilidades) serão perdidos."
+            android:textColor="@color/error_red"
+            android:textSize="13sp"
+            android:layout_marginTop="6dp" />
+
+        <Button
+            android:id="@+id/settings_clear_dossier"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Limpar Dossiê (memória) agora"
+            android:backgroundTint="@color/error_red"
+            android:layout_marginTop="8dp" />
+
+        <!-- VOZ -->
+        <Button
+            android:id="@+id/settings_open_voice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🗣️ Escolher voz da narração"
+            android:backgroundTint="@color/primary"
+            android:layout_marginTop="8dp" />
 
         <TextView
             android:id="@+id/settings_status"

@@ -47,6 +47,32 @@ class UserPrefs(context: Context) {
         }
         set(value) = plain.edit().putString(KEY_MODE, value.name).apply()
 
+    var chatMode: ChatMode
+        get() {
+            val name = plain.getString(KEY_CHAT_MODE, ChatMode.AUTO.name)
+            return runCatching { ChatMode.valueOf(name!!) }.getOrDefault(ChatMode.AUTO)
+        }
+        set(value) = plain.edit().putString(KEY_CHAT_MODE, value.name).apply()
+
+    var confidentMode: Boolean
+        get() = plain.getBoolean(KEY_CONFIDENT, false)
+        set(value) = plain.edit().putBoolean(KEY_CONFIDENT, value).apply()
+
+    var narrationEnabled: Boolean
+        get() = plain.getBoolean(KEY_NARRATION, true)
+        set(value) = plain.edit().putBoolean(KEY_NARRATION, value).apply()
+
+    var selectedVoice: String
+        get() = plain.getString(KEY_VOICE, "").toString()
+        set(value) = plain.edit().putString(KEY_VOICE, value).apply()
+
+    /** Prazo de validade da memória persistente em dias. Padrão: 30 (1 mês). */
+    val memoryExpiryDays: Int
+        get() = plain.getInt(KEY_MEMORY_DAYS, 30)
+
+    fun setMemoryExpiryDays(days: Int) =
+        plain.edit().putInt(KEY_MEMORY_DAYS, days.coerceIn(1, 2400)).apply()
+
     var termuxServerHost: String
         get() = plain.getString(KEY_HOST, "").toString()
         set(value) = plain.edit().putString(KEY_HOST, value.trim()).apply()
@@ -64,5 +90,10 @@ class UserPrefs(context: Context) {
         private const val KEY_MODEL = "model"
         private const val KEY_MODE = "mode"
         private const val KEY_HOST = "termux_host"
+        private const val KEY_CHAT_MODE = "chat_mode"
+        private const val KEY_CONFIDENT = "confident_mode"
+        private const val KEY_NARRATION = "narration_enabled"
+        private const val KEY_VOICE = "voice"
+        private const val KEY_MEMORY_DAYS = "memory_expiry_days"
     }
 }
