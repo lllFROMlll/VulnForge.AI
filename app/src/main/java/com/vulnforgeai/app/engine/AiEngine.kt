@@ -80,9 +80,14 @@ class AiEngine(
             })
 
             try {
+                // org.json do Android não serializa List<JSONObject> diretamente;
+                // montamos um JSONArray explícito para garantir o campo "messages".
+                val messagesArray = JSONArray()
+                messageHistory.forEach { messagesArray.put(it) }
+
                 val payload = JSONObject()
                     .put("model", prefs.selectedModel)
-                    .put("messages", messageHistory)
+                    .put("messages", messagesArray)
                     .put("temperature", 0.7)
                     .put("max_tokens", 1400)
 
