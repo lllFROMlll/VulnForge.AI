@@ -1,51 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_dark"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:background="@color/background_dark">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🔬 VulnForgeAI"
-        android:textColor="@color/secondary"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="4dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Assistente de Segurança Digital"
-        android:textColor="@color/text_secondary"
-        android:textSize="14sp"
-        android:layout_marginBottom="16dp" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/module_grid"
+    <!-- Central animado (placa de circuito + rosto de partículas) -->
+    <com.vulnforgeai.app.ui.visual.CircuitBoardView
+        android:id="@+id/circuit_stage"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_height="match_parent"
+        android:alpha="0.9" />
 
-    <Button
-        android:id="@+id/main_open_chat"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="💬 Ir para o Chat da IA"
-        android:backgroundTint="@color/secondary"
-        android:layout_marginTop="8dp" />
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <TextView
-        android:id="@+id/main_footer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Modo: Aprender  •  IA: OpenRouter"
-        android:textColor="@color/text_secondary"
-        android:textSize="12sp"
-        android:gravity="center"
-        android:padding="8dp" />
+        <!-- Cabeçalho -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
 
-</LinearLayout>
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🔬 VulnForge.AI"
+                android:textColor="@color/secondary"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/main_brain_tag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🤝 Modo 2"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cérebro Hacker ativado"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Ícones de função reposicionados para as bordas (modular) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/module_grid"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/main_open_chat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="💬 Abrir Chat do Cérebro"
+            android:backgroundTint="@color/secondary"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/main_footer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modo: Aprender  •  IA: OpenRouter"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:padding="8dp" />
+
+    </LinearLayout>
+
+</FrameLayout>

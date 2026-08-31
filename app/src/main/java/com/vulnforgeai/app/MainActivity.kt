@@ -8,6 +8,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.vulnforgeai.app.data.BrainMode
 import com.vulnforgeai.app.data.UserPrefs
 import com.vulnforgeai.app.ui.CameraScreen
 import com.vulnforgeai.app.ui.ChatScreen
@@ -18,6 +19,7 @@ import com.vulnforgeai.app.ui.ReportScreen
 import com.vulnforgeai.app.ui.SettingsScreen
 import com.vulnforgeai.app.ui.WebScanScreen
 import com.vulnforgeai.app.ui.WifiScreen
+import com.vulnforgeai.app.ui.visual.CircuitBoardView
 
 class MainActivity : AppCompatActivity() {
 
@@ -41,7 +43,7 @@ class MainActivity : AppCompatActivity() {
         prefs = UserPrefs(this)
 
         val recyclerView: RecyclerView = findViewById(R.id.module_grid)
-        recyclerView.layoutManager = GridLayoutManager(this, 2)
+        recyclerView.layoutManager = GridLayoutManager(this, 3)
         recyclerView.adapter = ModuleAdapter(modules) { module ->
             startActivity(Intent(this, module.targetActivity))
         }
@@ -52,6 +54,18 @@ class MainActivity : AppCompatActivity() {
 
         val footer: TextView = findViewById(R.id.main_footer)
         footer.text = "Modo: ${prefs.mode.label}  •  IA: OpenRouter  •  Modelo: ${prefs.selectedModel}"
+
+        val brainTag: TextView = findViewById(R.id.main_brain_tag)
+        val bm = prefs.brainMode
+        brainTag.text = "${bm.icon} ${bm.label}"
+
+        // Central de circuito: reage à fala/teclas (navegante da redesign atual).
+        val stage = findViewById<com.vulnforgeai.app.ui.visual.CircuitBoardView>(R.id.circuit_stage)
+        if (prefs.brainMode != BrainMode.USER) {
+            stage.onSpeak(0.5f)
+        } else {
+            stage.setIdle()
+        }
 
         if (!prefs.getBoolean("legal_ack", false)) {
             showLegalDialog()

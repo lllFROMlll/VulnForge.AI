@@ -56,6 +56,24 @@ class TermuxBridge(private val context: Context) {
         Pronto! Volte ao app e use o comando novamente.
     """.trimIndent()
 
+    /** Tenta ABRIR o app Termux (se instalado). Retorna true se iniciou. */
+    fun openTermux(): Boolean {
+        if (!isTermuxInstalled()) return false
+        return try {
+            val intent = context.packageManager
+                .getLaunchIntentForPackage("com.termux")
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                true
+            } else {
+                openTermuxWithCommand("pwd")
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /** Comandos prontos para copiar e colar. */
     fun getEssentialCommands(): Map<String, String> = mapOf(
         "Escanear portas rápidas" to "nmap -p 80,443,22,8080 -sV ALVO",
@@ -65,5 +83,20 @@ class TermuxBridge(private val context: Context) {
         "Headers de um site" to "curl -I https://exemplo.com",
         "SQL Injection" to "sqlmap -u \"URL\" --batch",
         "Descobrir diretórios" to "python3 -m dirsearch -u https://exemplo.com -e php,html,txt"
+    )
+
+    /**
+     * Sequência de configuração OBRIGATÓRIA do Termux (na ordem correta) para a
+     * ferramenta funcionar plenamente. Copie e cole um por um.
+     */
+    fun getSetupCommandsOrdered(): List<Pair<String, String>> = listOf(
+        "1. Atualizar pacotes" to "pkg update -y",
+        "2. Atualizar (upgrade)" to "pkg upgrade -y",
+        "3. Instalar ferramentas base" to "pkg install nmap curl git python python3 -y",
+        "4. Instalar sqlmap" to "pip install sqlmap",
+        "5. Instalar XSS (dalfox)" to "go install github.com/hahwul/dalfox/v2@latest",
+        "6. Instalar XSS (xsser)" to "pip install xsser",
+        "7. Instalar WPS (reaver)" to "pkg install reaver",
+        "8. Instalar WPS (wash)" to "pkg install aircrack-ng"
     )
 }

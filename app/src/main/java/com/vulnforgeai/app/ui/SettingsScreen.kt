@@ -2,6 +2,7 @@ package com.vulnforgeai.app.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.RadioButton
@@ -127,8 +128,21 @@ class SettingsScreen : AppCompatActivity() {
         }
 
         saveButton.setOnClickListener {
-            prefs.apiKey = keyField.text.toString()
-            if (selectedModel.isNotEmpty()) prefs.selectedModel = selectedModel
+            // VALIDAÇÃO antes de salvar (chave API + modelo + servidor Termux).
+            val key = keyField.text.toString().trim()
+            val model = selectedModel.ifBlank { fallbackField.text.toString().trim() }
+            if (key.isBlank()) {
+                statusText.text = "⚠️ Informe a chave da API (OpenRouter)."
+                statusText.setTextColor(android.graphics.Color.WHITE)
+                return@setOnClickListener
+            }
+            if (model.isBlank()) {
+                statusText.text = "⚠️ Informe o ID do modelo."
+                statusText.setTextColor(android.graphics.Color.WHITE)
+                return@setOnClickListener
+            }
+            prefs.apiKey = key
+            prefs.selectedModel = model
             prefs.mode = currentMode()
             prefs.chatMode = currentChatMode()
             prefs.confidentMode = confidentSwitch.isChecked
@@ -150,13 +164,38 @@ class SettingsScreen : AppCompatActivity() {
         prefs.setMemoryExpiryDays(days)
         prefs.brainMode = currentBrainMode()
         prefs.userPrompt = userPromptField.text.toString()
-        statusText.text = "Tudo salvo!"
-        Toast.makeText(this, "Configurações salvas", Toast.LENGTH_SHORT).show()
+        // Após salvar com sucesso, sai das Configurações e volta à tela principal.
+        Toast.makeText(this, "Configurações salvas. Abrindo a tela principal...", Toast.LENGTH_SHORT).show()
+        startActivity(
+            Intent(this, com.vulnforgeai.app.MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        )
+        finish()
     }
 
     private fun setupTermuxCommands() {
         val bridge = TermuxBridge(this)
-        val commands = bridge.getEssentialCommands().toList()
+        val commands = bridge.getSetupCommandsOrdered()
+
+        findViewById<Button>(R.id.settings_open_termux).setOnClickListener {
+            if (bridge.isTermuxInstalled()) {
+                if (!bridge.openTermux()) {
+                    Toast.makeText(this, "Não foi possível abrir o Termux.", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                AlertDialog.Builder(this)
+                    .setTitle("Termux não instalado")
+                    .setMessage("Instale o Termux para a ferramenta ter seu pleno funcionamento.\n\n" + bridge.getInstallTutorial())
+                    .setPositiveButton("Entendi", null)
+                    .show()
+            }
+        }
+
+        findViewById<Button>(R.id.settings_termux_commands_btn).setOnClickListener {
+            val shown = termuxList.visibility == View.VISIBLE
+            termuxList.visibility = if (shown) View.GONE else View.VISIBLE
+        }
+
         termuxList.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
         termuxList.adapter = TermuxCommandsAdapter(commands)
     }

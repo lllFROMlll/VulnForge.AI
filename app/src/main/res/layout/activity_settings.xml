@@ -305,7 +305,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Comandos Termux (funcionamento pleno)"
+            android:text="Termux (funcionamento pleno)"
             android:textColor="@color/text_primary"
             android:textStyle="bold"
             android:layout_marginTop="16dp" />
@@ -313,16 +313,52 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Cole UM comando por vez no Termux. Depois de estar instalado, estes comandos dão suporte a várias funcionalidades da ferramenta."
-            android:textColor="@color/text_secondary"
+            android:text="COLE OS COMANDOS NA SEQUÊNCIA NO TERMUX PARA A FERRAMENTA TER UM PLENO FUNCIONAMENTO"
+            android:textColor="@color/warning_yellow"
+            android:textStyle="bold"
             android:textSize="13sp"
             android:layout_marginTop="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/settings_open_termux"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="▶️ Abrir Termux"
+                android:backgroundTint="@color/secondary"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/settings_termux_commands_btn"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="📋 Comandos p/ colar"
+                android:backgroundTint="@color/primary"
+                android:layout_marginStart="4dp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Cole UM comando por vez, na ordem, para o app funcionar. Cada comando tem o botão Copiar."
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:layout_marginTop="6dp" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/settings_termux_commands"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp" />
+            android:layout_marginTop="6dp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/settings_status"
