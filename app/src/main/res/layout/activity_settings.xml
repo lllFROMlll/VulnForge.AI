@@ -239,6 +239,91 @@
             android:backgroundTint="@color/primary"
             android:layout_marginTop="8dp" />
 
+        <!-- CÉREBRO / MODO DE AUTONOMIA (Modo 1/2/3) -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cérebro (modo de autonomia)"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <RadioGroup
+            android:id="@+id/settings_brain_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="6dp">
+
+            <RadioButton
+                android:id="@+id/settings_brain_user"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🖐 Modo 1 - Manual (você opera as ferramentas)"
+                android:textColor="@color/text_primary" />
+
+            <RadioButton
+                android:id="@+id/settings_brain_assist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🤝 Modo 2 - Auxiliador (IA sugere brechas, você decide)"
+                android:textColor="@color/text_primary" />
+
+            <RadioButton
+                android:id="@+id/settings_brain_auto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⚡ Modo 3 - Automático (IA executa tudo e pesquisa na web)"
+                android:textColor="@color/text_primary" />
+
+        </RadioGroup>
+
+        <!-- PROMPT COMPLEMENTAR DO USUÁRIO -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Prompt complementar do usuário (opcional - soma à persona Hacker)"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+
+        <EditText
+            android:id="@+id/settings_user_prompt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textMultiLine"
+            android:minLines="2"
+            android:maxLines="4"
+            android:hint="Ex.: seja ainda mais agressivo na exploração e foque na cadeia de ataque."
+            android:background="@drawable/input_background"
+            android:padding="12dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:layout_marginTop="4dp" />
+
+        <!-- COMANDOS TERMUX (A1) -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Comandos Termux (funcionamento pleno)"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Cole UM comando por vez no Termux. Depois de estar instalado, estes comandos dão suporte a várias funcionalidades da ferramenta."
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:layout_marginTop="4dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/settings_termux_commands"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" />
+
         <TextView
             android:id="@+id/settings_status"
             android:layout_width="wrap_content"

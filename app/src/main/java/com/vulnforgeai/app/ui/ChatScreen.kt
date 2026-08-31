@@ -17,6 +17,7 @@ import com.vulnforgeai.app.R
 import com.vulnforgeai.app.audio.Narration
 import com.vulnforgeai.app.audio.VoiceInput
 import com.vulnforgeai.app.audio.VoicePickerScreen
+import com.vulnforgeai.app.data.BrainMode
 import com.vulnforgeai.app.data.ChatMode
 import com.vulnforgeai.app.data.ConversationStore
 import com.vulnforgeai.app.data.DossierStore
@@ -24,10 +25,15 @@ import com.vulnforgeai.app.data.Stealth
 import com.vulnforgeai.app.data.UserPrefs
 import com.vulnforgeai.app.engine.AiEngine
 import com.vulnforgeai.app.engine.BlitzEngine
+import com.vulnforgeai.app.engine.BrainContext
 import com.vulnforgeai.app.engine.IntentParser
 import com.vulnforgeai.app.engine.NetworkExplorer
 import com.vulnforgeai.app.engine.ToolExecutor
+import com.vulnforgeai.app.engine.WebExplorer
 import com.vulnforgeai.app.engine.WifiAnalyzer
+import com.vulnforgeai.app.engine.XssScanner
+import com.vulnforgeai.app.ui.visual.SimpleVisualStage
+import com.vulnforgeai.app.ui.visual.VisualStage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -55,10 +61,15 @@ class ChatScreen : AppCompatActivity() {
     private lateinit var voiceInput: VoiceInput
     private lateinit var wifiAnalyzer: WifiAnalyzer
     private lateinit var networkExplorer: NetworkExplorer
+    private lateinit var xssScanner: XssScanner
+    private lateinit var webExplorer: WebExplorer
+    private lateinit var brainContext: BrainContext
+    private lateinit var visualStage: VisualStage
 
     private val networkResult = mutableListOf<com.vulnforgeai.app.data.ScanResult>()
     private var currentConversationId: Long = -1L
     private var explorationActive = false
+    private var xssActive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +85,12 @@ class ChatScreen : AppCompatActivity() {
         voiceInput = VoiceInput(this)
         wifiAnalyzer = WifiAnalyzer(this)
         networkExplorer = NetworkExplorer(wifiAnalyzer)
+        brainContext = BrainContext()
+        xssScanner = XssScanner()
+        webExplorer = WebExplorer(xssScanner, brainContext)
+        visualStage = SimpleVisualStage()
+
+        prefs.brainMode.let { visualStage.setIdle() }
 
         recyclerView = findViewById(R.id.chat_recycler)
         tabsRecycler = findViewById(R.id.conversation_tabs)
@@ -126,6 +143,8 @@ class ChatScreen : AppCompatActivity() {
         findViewById<Button>(R.id.quick_learn).setOnClickListener {
             startActivity(android.content.Intent(this, LearningScreen::class.java))
         }
+        findViewById<Button>(R.id.brain_mode_button).setOnClickListener { cycleBrainMode() }
+        findViewById<Button>(R.id.conversation_menu_button).setOnClickListener { showConversationMenu() }
     }
 
     override fun onResume() {
@@ -141,7 +160,83 @@ class ChatScreen : AppCompatActivity() {
     }
 
     private fun updateModeBar() {
-        modeBar.text = "Modo: ${prefs.chatMode.label}  •  Modelo: ${prefs.selectedModel}"
+        val brain = prefs.brainMode
+        modeBar.text = "🧠 ${brain.icon} ${brain.label}  •  ${prefs.chatMode.label}  •  ${prefs.selectedModel}"
+        findViewById<Button>(R.id.brain_mode_button).text = brain.icon
+    }
+
+    /** Alterna entre os 3 modos de autonomia do cérebro (persistido). */
+    private fun cycleBrainMode() {
+        val values = BrainMode.values()
+        val next = values[(prefs.brainMode.ordinal + 1) % values.size]
+        prefs.brainMode = next
+        updateModeBar()
+        addMessage("Cérebro", "Modo ${next.label} (${next.icon}) ativado." +
+            if (next == BrainMode.AUTO) "\n🟢 Automático: executo tudo e posso buscar na web. Diga o objetivo." else
+            if (next == BrainMode.ASSIST) "\n🤝 Auxiliador: apresento as melhores brechas, você decide." else
+            "\n🖐 Manual: você opera as ferramentas, eu não interfiro.", isUser = false)
+    }
+
+    /** Menu (A2): conversas, nova conversa, excluir, fixar (até 4). */
+    private fun showConversationMenu() {
+        val all = conversationStore.all()
+        val labels = mutableListOf<Pair<String, () -> Unit>>()
+        all.forEach { conv ->
+            val pin = if (conv.isPinned) "📌" else "📄"
+            labels.add("$pin ${conv.title}" to {
+                currentConversationId = conv.id; conversationStore.touch(conv.id); refreshTabs()
+            })
+        }
+        labels.add("➕ Nova conversa" to {
+            currentConversationId = conversationStore.create("Nova conversa"); refreshTabs()
+        })
+        if (all.isNotEmpty()) labels.add("🗑 Excluir conversa" to { showDeletePicker(all) })
+        if (all.isNotEmpty()) labels.add("📌 Fixar como 1ª (máx $MAX_PINNED)" to { showPinPicker(all) })
+
+        AlertDialog.Builder(this)
+            .setTitle("Conversas")
+            .setItems(labels.map { it.first }.toTypedArray()) { _, which -> labels[which].second() }
+            .setNegativeButton("Fechar", null)
+            .show()
+    }
+
+    private fun showPinPicker(all: List<ConversationStore.Conversation>) {
+        val pinnedCount = all.count { it.isPinned }
+        AlertDialog.Builder(this)
+            .setTitle("Fixar conversa como primeira")
+            .setItems(all.map { if (it.isPinned) "📌 ${it.title} (fixada)" else "📄 ${it.title}" }.toTypedArray()) { _, which ->
+                val conv = all[which]
+                if (!conv.isPinned && pinnedCount >= MAX_PINNED) {
+                    Toast.makeText(this, "Máximo de $MAX_PINNED conversas fixadas.", Toast.LENGTH_SHORT).show()
+                } else {
+                    conversationStore.setPinned(conv.id, !conv.isPinned)
+                    refreshTabs()
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun showDeletePicker(all: List<ConversationStore.Conversation>) {
+        AlertDialog.Builder(this)
+            .setTitle("Excluir conversa")
+            .setItems(all.map { it.title }.toTypedArray()) { _, which ->
+                val conv = all[which]
+                AlertDialog.Builder(this)
+                    .setMessage("Excluir '${conv.title}'? (Dossiê dos alvos continua salvo.)")
+                    .setPositiveButton("Excluir") { _, _ ->
+                        conversationStore.delete(conv.id)
+                        if (currentConversationId == conv.id) {
+                            currentConversationId = conversationStore.all().firstOrNull()?.id
+                                ?: conversationStore.create("Nova conversa")
+                        }
+                        refreshTabs()
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun ensureDossieCleanup() {
@@ -204,6 +299,13 @@ class ChatScreen : AppCompatActivity() {
         // Blitz: fluxo especial
         if (intent.isBlitz) {
             runBlitz()
+            return
+        }
+
+        // XSS: se pediram xss e há URL, roda o scan real dentro do chat.
+        val url = extractUrl(text)
+        if (containsXss(text) && url != null) {
+            runXss(url)
             return
         }
 
@@ -282,6 +384,105 @@ class ChatScreen : AppCompatActivity() {
         runOnUiThread { addMessage("Operação", line, isUser = false, type = MessageType.LOG) }
     }
 
+    /** Detecta se o pedido pede teste XSS. */
+    private fun containsXss(text: String): Boolean {
+        val t = text.lowercase()
+        return t.contains("xss") || t.contains("cross-site") || t.contains("script injection")
+    }
+
+    /** Extrai a primeira URL (http/https) do texto. */
+    private fun extractUrl(text: String): String? {
+        val m = Regex("""https?://[^\s]+""").find(text)
+        return m?.value?.trimEnd(')', ',', '.', ';', '"', '\'')
+    }
+
+    /** Inicia o Módulo 3 (XSS) dentro do chat — teste real + cérebro. */
+    private fun runXss(url: String) {
+        if (xssActive) return
+        xssActive = true
+        addMessage("Operação", "🔥 Testando XSS em $url (Módulo Web)...", isUser = false, type = MessageType.LOG)
+        visualStage.onTyping()
+        CoroutineScope(Dispatchers.IO).launch {
+            val findings = webExplorer.explore(url) { narrate(it) }
+            val prioritized = webExplorer.priorize(findings)
+            withContext(Dispatchers.Main) {
+                prioritized.forEach { r ->
+                    addMessage(
+                        "XSS", r.details.take(200),
+                        isUser = false, type = MessageType.DEVICE_CARD,
+                        risk = r.risk, device = r
+                    )
+                }
+                findings.forEach { dossier.addTarget(it.target, it.type, it.details, it.risk.name) }
+                brainContext.addAll(findings)
+                // Resumo + próximo passo pelo cérebro (respeita o modo).
+                addXssSummary(prioritized)
+                xssActive = false
+                askBrainNextStep("Encontramos resultados de XSS em $url. Qual próximo passo?")
+            }
+        }
+    }
+
+    private fun addXssSummary(findings: List<com.vulnforgeai.app.data.ScanResult>) {
+        val vuln = findings.filter { it.risk == com.vulnforgeai.app.data.Risk.ALTO || it.risk == com.vulnforgeai.app.data.Risk.CRITICO }
+        if (vuln.isNotEmpty()) {
+            addMessage(
+                "Cérebro",
+                "${vuln.size} possível(is) XSS refletido(s). Maior gravidade: score ${"%.1f".format(vuln.first().scoreCvss)} (conf ${vuln.first().confidence}%).",
+                isUser = false
+            )
+        }
+    }
+
+    /** Consulta o cérebro IA (hacker) para o próximo passo, conforme o modo. */
+    private fun askBrainNextStep(question: String) {
+        val mode = prefs.brainMode
+        if (mode == BrainMode.USER) return // modo manual: usuário decide/comanda
+        CoroutineScope(Dispatchers.IO).launch {
+            val ctx = brainContext.snapshot()
+            val searchWeb = mode == BrainMode.AUTO
+            val reply = aiEngine.askAsHacker(question, mode, ctx, searchWeb)
+            withContext(Dispatchers.Main) {
+                if (reply.refused) {
+                    addMessage(
+                        "🧠 Cérebro",
+                        "O modelo atual recusou a tarefa. Tentando modelo alternativo...",
+                        isUser = false, mode = ChatMode.PROFISSIONAL
+                    )
+                    askModelAlt(question, mode)
+                } else {
+                    addMessage(
+                        "🧠 Cérebro (${mode.icon} ${mode.label})",
+                        reply.body,
+                        isUser = false,
+                        type = if (mode == BrainMode.AUTO) MessageType.LOG else MessageType.NORMAL
+                    )
+                    if (mode == BrainMode.ASSIST && reply.recommendations.isNotEmpty()) {
+                        addMessage(
+                            "Brechas recomendadas",
+                            reply.recommendations.joinToString("\n") { (t, c) -> "• $t (conf $c%)" },
+                            isUser = false,
+                            type = MessageType.PROMPT_BUTTONS,
+                            actions = listOf("Próximo passo", "Continuar aprofundando")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun askModelAlt(
+        question: String,
+        mode: BrainMode
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val body = aiEngine.tryAltModelAlt(question, mode)
+            withContext(Dispatchers.Main) {
+                addMessage("🧠 Cérebro (alternativo)", body, isUser = false, mode = ChatMode.PROFISSIONAL)
+            }
+        }
+    }
+
     private fun onSpeak(msg: ChatMessage) {
         narration.speak(msg.text)
     }
@@ -300,6 +501,7 @@ class ChatScreen : AppCompatActivity() {
                 )
             }
             networkResult.addAll(findings)
+            brainContext.addAll(findings)
             val reportLines = networkExplorer.buildReportLines(findings)
             withContext(Dispatchers.Main) {
                 additionSnap(reportLines)
@@ -392,8 +594,10 @@ class ChatScreen : AppCompatActivity() {
                 val proto = label.removePrefix("Tentar ").trim()
                 dev?.let { runProtocol(it.target, listOf(proto.lowercase())) }
             }
+            label.startsWith("Continuar") || label.startsWith("Próximo passo") || label.startsWith("Aprofundar") -> {
+                askBrainNextStep("Continue aprofundando a exploração. Qual o próximo passo?")
+            }
             else -> {
-                // Próximo alvo / continuação
                 suggestNextByAI()
             }
         }
@@ -464,5 +668,9 @@ class ChatScreen : AppCompatActivity() {
 
     private fun requestMicPermission() {
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 300)
+    }
+
+    companion object {
+        private const val MAX_PINNED = 4
     }
 }

@@ -77,6 +77,16 @@ class UserPrefs(context: Context) {
         get() = plain.getString(KEY_HOST, "").toString()
         set(value) = plain.edit().putString(KEY_HOST, value.trim()).apply()
 
+    /** Modo de autonomia do cérebro (Modo 1/2/3). Padrão: Modo 2 (Auxiliador). */
+    var brainMode: BrainMode
+        get() = BrainMode.fromName(plain.getString(KEY_BRAIN_MODE, null))
+        set(value) = plain.edit().putString(KEY_BRAIN_MODE, value.name).apply()
+
+    /** Prompt complementador do usuário (soma à persona Hacker; não substitui). */
+    var userPrompt: String
+        get() = plain.getString(KEY_USER_PROMPT, "").toString()
+        set(value) = plain.edit().putString(KEY_USER_PROMPT, value.trim()).apply()
+
     fun getBoolean(key: String, default: Boolean): Boolean =
         plain.getBoolean(key, default)
 
@@ -95,5 +105,7 @@ class UserPrefs(context: Context) {
         private const val KEY_NARRATION = "narration_enabled"
         private const val KEY_VOICE = "voice"
         private const val KEY_MEMORY_DAYS = "memory_expiry_days"
+        private const val KEY_BRAIN_MODE = "brain_mode"
+        private const val KEY_USER_PROMPT = "user_prompt"
     }
 }

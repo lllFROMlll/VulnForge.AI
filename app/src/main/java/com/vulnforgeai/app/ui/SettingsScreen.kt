@@ -15,11 +15,13 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.vulnforgeai.app.R
 import com.vulnforgeai.app.audio.VoicePickerScreen
+import com.vulnforgeai.app.data.BrainMode
 import com.vulnforgeai.app.data.ChatMode
 import com.vulnforgeai.app.data.DossierStore
 import com.vulnforgeai.app.data.UserMode
 import com.vulnforgeai.app.data.UserPrefs
 import com.vulnforgeai.app.engine.AiEngine
+import com.vulnforgeai.app.engine.TermuxBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,6 +42,9 @@ class SettingsScreen : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var modeGroup: RadioGroup
     private lateinit var chatModeGroup: RadioGroup
+    private lateinit var brainGroup: RadioGroup
+    private lateinit var userPromptField: EditText
+    private lateinit var termuxList: RecyclerView
     private lateinit var confidentSwitch: SwitchMaterial
     private lateinit var radioIniciante: RadioButton
     private lateinit var radioIntermediario: RadioButton
@@ -73,6 +78,9 @@ class SettingsScreen : AppCompatActivity() {
         statusText = findViewById(R.id.settings_status)
         modeGroup = findViewById(R.id.settings_mode_group)
         chatModeGroup = findViewById(R.id.settings_chatmode_group)
+        brainGroup = findViewById(R.id.settings_brain_group)
+        userPromptField = findViewById(R.id.settings_user_prompt)
+        termuxList = findViewById(R.id.settings_termux_commands)
         confidentSwitch = findViewById(R.id.settings_confident)
         radioIniciante = findViewById(R.id.settings_mode_iniciante)
         radioIntermediario = findViewById(R.id.settings_mode_intermediario)
@@ -87,6 +95,9 @@ class SettingsScreen : AppCompatActivity() {
         selectModeRadio(prefs.mode)
         selectChatModeRadio(prefs.chatMode)
         confidentSwitch.isChecked = prefs.confidentMode
+        selectBrainModeRadio(prefs.brainMode)
+        userPromptField.setText(prefs.userPrompt)
+        setupTermuxCommands()
 
         loadButton.setOnClickListener { loadModels() }
 
@@ -137,8 +148,31 @@ class SettingsScreen : AppCompatActivity() {
 
     private fun commitSave(days: Int) {
         prefs.setMemoryExpiryDays(days)
+        prefs.brainMode = currentBrainMode()
+        prefs.userPrompt = userPromptField.text.toString()
         statusText.text = "Tudo salvo!"
         Toast.makeText(this, "Configurações salvas", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun setupTermuxCommands() {
+        val bridge = TermuxBridge(this)
+        val commands = bridge.getEssentialCommands().toList()
+        termuxList.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        termuxList.adapter = TermuxCommandsAdapter(commands)
+    }
+
+    private fun currentBrainMode(): BrainMode = when (brainGroup.checkedRadioButtonId) {
+        R.id.settings_brain_user -> BrainMode.USER
+        R.id.settings_brain_auto -> BrainMode.AUTO
+        else -> BrainMode.ASSIST
+    }
+
+    private fun selectBrainModeRadio(mode: BrainMode) {
+        when (mode) {
+            BrainMode.USER -> findViewById<RadioButton>(R.id.settings_brain_user).isChecked = true
+            BrainMode.ASSIST -> findViewById<RadioButton>(R.id.settings_brain_assist).isChecked = true
+            BrainMode.AUTO -> findViewById<RadioButton>(R.id.settings_brain_auto).isChecked = true
+        }
     }
 
     private fun loadModels() {

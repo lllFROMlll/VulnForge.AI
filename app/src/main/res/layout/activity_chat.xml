@@ -5,16 +5,42 @@
     android:background="@color/background_dark"
     android:orientation="vertical">
 
-    <!-- Barra de modo atual -->
-    <TextView
-        android:id="@+id/chat_mode_bar"
+    <!-- Barra de modo atual + seletor de cérebro + menu de conversas -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="horizontal"
         android:background="@color/primary_dark"
-        android:padding="6dp"
-        android:gravity="center"
-        android:textColor="@color/white"
-        android:textSize="13sp" />
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/chat_mode_bar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="6dp"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/brain_mode_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🤝"
+            android:textSize="14sp"
+            android:backgroundTint="@color/secondary"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/conversation_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="☰"
+            android:textSize="16sp"
+            android:backgroundTint="@color/secondary" />
+
+    </LinearLayout>
 
     <!-- Abas de conversação -->
     <androidx.recyclerview.widget.RecyclerView

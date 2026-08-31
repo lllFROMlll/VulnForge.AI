@@ -214,6 +214,159 @@ class AiEngine(
         messageHistory.add(jsonSystem(buildSystemPrompt(mode)))
     }
 
+    /**
+     * Persona "Hacker" — system prompt dedicado do cérebro. Agressivo, persistente,
+     * metódico, voltado a vulnerabilidades; correlaciona módulos; atuação autorizada.
+     * O prompt complementador do usuário se soma (não substitui).
+     */
+    fun buildHackerPrompt(sessionContext: String): String {
+        val base = "Você é o cérebro do VulnForgeAI, um profissional de segurança ofensiva (pentester autorizado) atuando como um HACKER. Seja AGRESSIVO no raciocínio, persistente e metódico. Nunca pare por conta própria enquanto o usuário quiser continuar. Correlacione todas as informações disponíveis entre módulos para encontrar e aprofundar vulnerabilidades, indo sempre mais fundo. Você pode pesquisar na internet (via web research) quando precisar de conhecimento atual (CVEs, exploits, payloads, técnicas). Responda sempre em português de forma técnica e direta para um profissional."
+        val sess = if (sessionContext.isBlank()) "" else "\n\n$sessionContext"
+        val user = prefs.userPrompt.takeIf { it.isNotBlank() }
+            ?.let { "\n\nCOMPLEMENTO DE PREFERÊNCIA DO USUÁRIO (sig-o isso além da persona):\n$it" } ?: ""
+        return base + sess + user
+    }
+
+    /**
+     * Motor de IA como "Hacker": processa um objetivo do usuário dentro de um
+     * modo de autonomia, usando a persona Hacker + contexto vivo (BrainContext).
+     *
+     * Modo 2 (ASSIST): responde AS MELHORES brechas (não executa sozinha).
+     * Modo 3 (AUTO): orienta a execução automática; pesquisa web quando necessária.
+     */
+    suspend fun askAsHacker(
+        userMessage: String,
+        brainMode: com.vulnforgeai.app.data.BrainMode,
+        sessionContext: String,
+        searchWeb: Boolean = false
+    ): HackerReply = withContext(Dispatchers.IO) {
+        seedHackerContext(sessionContext, brainMode)
+        messageHistory.add(JSONObject().apply {
+            put("role", "user")
+            put("content", when (brainMode) {
+                com.vulnforgeai.app.data.BrainMode.USER ->
+                    "O usuário está operando manualmente. Apenas responda de forma útil sim, mas sem executar nada por conta própria. Solicitação: $userMessage"
+                com.vulnforgeai.app.data.BrainMode.ASSIST ->
+                    "Estou no MODO AUXILIADOR: NÃO execute nada sozinho. Aponte as MELHORES brechas/vulnerabilidades a explorar agora, conforme o que estamos fazendo, com um grau de confiança (0-100%) e cor (crítico/alto/médio/baixo). Solicitação: $userMessage"
+                com.vulnforgeai.app.data.BrainMode.AUTO ->
+                    "Estou no MODO AUTOMÁTICO: coordene e execute a melhor cadeia de ações para cumprir o objetivo, indo sempre mais fundo até achar a vulnerabilidade. Teste de forma real e correlacione. Use web research se necessário. Objetivo: $userMessage"
+            })
+        })
+
+        lateinit var result: HackerReply
+        try {
+            var reply = callHacker(brainMode)
+            val needsWeb = searchWeb && (reply.isEmpty || brainMode == com.vulnforgeai.app.data.BrainMode.AUTO)
+            if (needsWeb) {
+                val web = WebResearch().search(userMessage, 4)
+                if (web.isNotBlank()) {
+                    reply = tryAgainWithWeb(userMessage, web, brainMode)
+                }
+            }
+            result = reply
+        } catch (e: Exception) {
+            result = HackerReply(
+                "Aviso: erro ao falar com a IA. Verifique sua chave de API / modelo e conexão.",
+                emptyList(),
+                0,
+                ""
+            )
+        }
+        result
+    }
+
+    private fun seedHackerContext(sessionContext: String, brainMode: com.vulnforgeai.app.data.BrainMode) {
+        messageHistory.clear()
+        val extra = when (brainMode) {
+            com.vulnforgeai.app.data.BrainMode.USER -> " Modo 1 (Manual): usuário opera as ferramentas."
+            com.vulnforgeai.app.data.BrainMode.ASSIST -> " Modo 2 (Auxiliador): sugira, não execute."
+            com.vulnforgeai.app.data.BrainMode.AUTO -> " Modo 3 (Automático): execute tudo."
+        }
+        messageHistory.add(jsonSystem(buildHackerPrompt(sessionContext) + extra))
+    }
+
+    private fun callHacker(brainMode: com.vulnforgeai.app.data.BrainMode): HackerReply {
+        val messagesArray = JSONArray()
+        messageHistory.forEach { messagesArray.put(it) }
+        val payload = JSONObject()
+            .put("model", prefs.selectedModel)
+            .put("messages", messagesArray)
+            .put("temperature", 0.6)
+            .put("max_tokens", 900)
+        val request = Request.Builder()
+            .url(URL_CHAT)
+            .addHeader("Authorization", "Bearer ${prefs.apiKey}")
+            .post(payload.toString().toRequestBody(JSON_MEDIA))
+            .build()
+        val responseBody = client.newCall(request).execute().use { it.body?.string().orEmpty() }
+        val content = JSONObject(responseBody)
+            .optJSONArray("choices")?.optJSONObject(0)
+            ?.optJSONObject("message")?.optString("content", "").orEmpty()
+        return parseHackerReply(content)
+    }
+
+    private fun tryAgainWithWeb(question: String, web: String, brainMode: com.vulnforgeai.app.data.BrainMode): HackerReply {
+        messageHistory.clear()
+        seedHackerContext("PESQUISA WEB RECENTE sobre: $question\n$web", brainMode)
+        messageHistory.add(JSONObject().apply {
+            put("role", "user")
+            put("content", "Use a pesquisa web acima para continuar com precisão e me dê o próximo passo/ação. Objetivo: $question")
+        })
+        return callHacker(brainMode)
+    }
+
+    private fun parseHackerReply(content: String): HackerReply {
+        if (content.isBlank()) return HackerReply("", emptyList(), 0, "", refused = true)
+        val refused = content.contains("não posso", true) || content.contains("can't", true) ||
+            content.contains("não vou", true) || content.contains("não consigo", true) ||
+            content.contains("against", true) || content.contains("políticas", true)
+        val recommendations = extractRecommendations(content)
+        return HackerReply(content, recommendations, 80, content.take(120), refused)
+    }
+
+    private fun extractRecommendations(content: String): List<Pair<String, Int>> {
+        val out = mutableListOf<Pair<String, Int>>()
+        content.lineSequence().forEach { line ->
+            val t = line.trim()
+            if ((t.startsWith("-") || t.startsWith("*") || t.startsWith("•")) && t.length > 5) {
+                out.add(t.removePrefix("-").removePrefix("*").removePrefix("•").trim() to 75)
+            }
+        }
+        return out
+    }
+
+    /**
+     * Alternância de modelo em caso de recusa/falha (DEC-4): tenta um modelo
+     * alternativo e retorna a resposta, ou uma mensagem clara.
+     */
+    suspend fun tryAltModelAlt(userMessage: String, brainMode: com.vulnforgeai.app.data.BrainMode): String {
+        return withContext(Dispatchers.IO) {
+            val candidates = listOf("openrouter/auto", "openrouter/openai/gpt-4o-mini")
+            for (alt in candidates) {
+                if (alt == prefs.selectedModel) continue
+                val prev = prefs.selectedModel
+                try {
+                    prefs.selectedModel = alt
+                    val r = askAsHacker(userMessage, brainMode, "", searchWeb = false)
+                    if (!r.refused && r.body.isNotBlank()) return@withContext r.body
+                } finally {
+                    prefs.selectedModel = prev
+                }
+            }
+            "O modelo selecionado recusou realizar esta tarefa. Tente outro modelo na Configurações, ou descreva de outra forma. (A ferramenta é para pentest autorizado.)"
+        }
+    }
+
+    data class HackerReply(
+        val body: String,
+        val recommendations: List<Pair<String, Int>>,
+        val confidence: Int,
+        val summary: String,
+        val refused: Boolean = false
+    ) {
+        val isEmpty: Boolean get() = body.isBlank() || refused
+    }
+
     /** Monta as instruções fixas que a IA segue, conforme o modo e o contexto. */
     private fun buildSystemPrompt(mode: ChatMode): String {
         val now = System.currentTimeMillis()
