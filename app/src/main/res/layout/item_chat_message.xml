@@ -13,7 +13,7 @@
         android:id="@+id/message_card"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:maxWidth="320dp"
+        android:maxWidth="340dp"
         app:cardCornerRadius="12dp"
         app:cardElevation="1dp">
 
@@ -49,6 +49,50 @@
 
             </LinearLayout>
 
+            <!-- Cartão de dispositivo (DEVICE_CARD) -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/device_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
+                    <TextView
+                        android:id="@+id/device_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/device_meta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFB0B0B0"
+                        android:textSize="12sp"
+                        android:layout_marginTop="2dp" />
+
+                    <TextView
+                        android:id="@+id/device_score"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
             <TextView
                 android:id="@+id/message_text"
                 android:layout_width="wrap_content"
@@ -60,5 +104,19 @@
         </LinearLayout>
 
     </androidx.cardview.widget.CardView>
+
+    <!-- Barra de botões de ação (PROMPT_BUTTONS / DEVICE_CARD "prosseguir") -->
+    <LinearLayout
+        android:id="@+id/action_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="start"
+        android:layout_marginTop="4dp"
+        android:visibility="gone">
+
+        <!-- Botões adicionados dinamicamente em ChatAdapter -->
+
+    </LinearLayout>
 
 </LinearLayout>

@@ -25,7 +25,9 @@ import com.vulnforgeai.app.data.UserPrefs
 import com.vulnforgeai.app.engine.AiEngine
 import com.vulnforgeai.app.engine.BlitzEngine
 import com.vulnforgeai.app.engine.IntentParser
+import com.vulnforgeai.app.engine.NetworkExplorer
 import com.vulnforgeai.app.engine.ToolExecutor
+import com.vulnforgeai.app.engine.WifiAnalyzer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -51,8 +53,12 @@ class ChatScreen : AppCompatActivity() {
     private lateinit var conversationStore: ConversationStore
     private lateinit var narration: Narration
     private lateinit var voiceInput: VoiceInput
+    private lateinit var wifiAnalyzer: WifiAnalyzer
+    private lateinit var networkExplorer: NetworkExplorer
 
+    private val networkResult = mutableListOf<com.vulnforgeai.app.data.ScanResult>()
     private var currentConversationId: Long = -1L
+    private var explorationActive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,6 +72,8 @@ class ChatScreen : AppCompatActivity() {
         toolExecutor = ToolExecutor(this)
         narration = Narration(this, prefs)
         voiceInput = VoiceInput(this)
+        wifiAnalyzer = WifiAnalyzer(this)
+        networkExplorer = NetworkExplorer(wifiAnalyzer)
 
         recyclerView = findViewById(R.id.chat_recycler)
         tabsRecycler = findViewById(R.id.conversation_tabs)
@@ -78,7 +86,7 @@ class ChatScreen : AppCompatActivity() {
         tabsRecycler.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
 
-        adapter = ChatAdapter(messages) { onSpeak(it) }
+        adapter = ChatAdapter(messages, onSpeak = { onSpeak(it) }, onAction = { msg, label -> onAction(msg, label) })
         recyclerView.adapter = adapter
 
         ensureDossieCleanup()
@@ -110,7 +118,7 @@ class ChatScreen : AppCompatActivity() {
             }
         }
 
-        findViewById<Button>(R.id.quick_wifi).setOnClickListener { sendMessage("modo blitz wifi") }
+        findViewById<Button>(R.id.quick_wifi).setOnClickListener { if (!explorationActive) runNetworkExplorer() }
         findViewById<Button>(R.id.quick_blitz).setOnClickListener { runBlitz() }
         findViewById<Button>(R.id.quick_target).setOnClickListener {
             addMessage("Alvo", "Hmm, me diga o alvo (IP ou domínio).", isUser = false)
@@ -278,10 +286,174 @@ class ChatScreen : AppCompatActivity() {
         narration.speak(msg.text)
     }
 
-    private fun addMessage(sender: String, text: String, isUser: Boolean,
-                           mode: ChatMode = ChatMode.APRENDIZ,
-                           type: MessageType = MessageType.NORMAL) {
-        messages.add(ChatMessage(sender, text, isUser, type, mode))
+    /** Inicia o fluxo de exploração da rede (Módulo 2) dentro do chat. */
+    private fun runNetworkExplorer() {
+        if (explorationActive) return
+        explorationActive = true
+        networkResult.clear()
+        addMessage("Operação", "🧭 Iniciando Exploração de Rede (Módulo WiFi)...", isUser = false, type = MessageType.LOG)
+        CoroutineScope(Dispatchers.IO).launch {
+            val findings = withContext(Dispatchers.IO) {
+                networkExplorer.explore(
+                    onNarrative = { narrate(it) },
+                    onDevice = { dev -> addDeviceCard(dev) }
+                )
+            }
+            networkResult.addAll(findings)
+            val reportLines = networkExplorer.buildReportLines(findings)
+            withContext(Dispatchers.Main) {
+                additionSnap(reportLines)
+                // Complemento #4 — movimento lateral
+                val chain = networkExplorer.buildLateralChain(findings)
+                chain.forEach { narrate(it) }
+                explorationActive = false
+                suggestNextByAI()
+            }
+        }
+    }
+
+    private fun addDeviceCard(dev: com.vulnforgeai.app.data.ScanResult) {
+        runOnUiThread {
+            addMessage(
+                "Dispositivo", dev.details.take(120),
+                isUser = false, type = MessageType.DEVICE_CARD,
+                risk = dev.risk, device = dev
+            )
+        }
+    }
+
+    /** Adiciona um resumo/continuidade só se houver achados (interface limpa). */
+    private fun additionSnap(lines: List<String>) {
+        if (lines.isEmpty()) return
+        addMessage(
+            "VulnForgeAI",
+            "Resumo da exploração: ${lines.size} achados priorizados por pontuação × confiança.\n" +
+                lines.take(3).joinToString("\n"),
+            isUser = false
+        )
+    }
+
+    /** Percorre o caminho priorizado e consulta a IA (ou heurístico) p/ o próximo passo. */
+    private fun suggestNextByAI() {
+        val prioritized = networkExplorer.priorize(networkResult)
+        if (prioritized.isEmpty()) {
+            addMessage("VulnForgeAI", "Nenhum alvo vulnerável encontrado na rede no momento.", isUser = false)
+            return
+        }
+        val best = prioritized.first()
+        val state = buildScanState(prioritized, best)
+        CoroutineScope(Dispatchers.IO).launch {
+            val step = aiEngine.suggestNextStep(state)
+            withContext(Dispatchers.Main) {
+                val buttons = step.buttonLabels()
+                addMessage(
+                    "🧠 Cérebro (IA)", "Próximo passo recomendado:\n${step.description}\n\n" +
+                        "Alvo: ${step.target} • Score ${"%.1f".format(step.score)} • Confiança ${step.confidence}%\n" +
+                        step.explanation,
+                    isUser = false,
+                    type = MessageType.PROMPT_BUTTONS,
+                    risk = com.vulnforgeai.app.data.Risk.fromScore(step.score),
+                    actions = buttons,
+                    step = step
+                )
+            }
+        }
+    }
+
+    private fun buildScanState(
+        findings: List<com.vulnforgeai.app.data.ScanResult>,
+        best: com.vulnforgeai.app.data.ScanResult
+    ): String {
+        val sb = StringBuilder("Alvo prioritário: dispositivo ${best.target} | score ${"%.1f".format(best.scoreCvss)} | conf ${best.confidence}%\n")
+        findings.take(8).forEachIndexed { i, f ->
+            sb.appendLine("dispositivo[${i + 1}] ${f.target} | score ${"%.1f".format(f.scoreCvss)} | conf ${f.confidence}% | proto ${f.protocols.joinToString(",")} | ${f.details.take(60)}")
+        }
+        return sb.toString()
+    }
+
+    /** Trata toque num botão de ação da mensagem. */
+    private fun onAction(msg: ChatMessage, label: String) {
+        val dev = msg.device
+        val step = msg.step
+        when {
+            label.startsWith("Detalhar") || label.endsWith("dispositivo") -> {
+                val d = dev ?: return
+                addMessage(d.target, d.details, isUser = false)
+                val actions = (d.protocols + "Credencial padrão").distinct()
+                askExploitationGate(d)
+            }
+            label.startsWith("Testar") && step?.protocol != null -> {
+                runProtocol(step.target, listOf(step.protocol!!, "ftp"))
+            }
+            label.startsWith("Executar") -> {
+                step?.command?.let { execCommand(it) }
+            }
+            label.startsWith("Tentar") -> {
+                val proto = label.removePrefix("Tentar ").trim()
+                dev?.let { runProtocol(it.target, listOf(proto.lowercase())) }
+            }
+            else -> {
+                // Próximo alvo / continuação
+                suggestNextByAI()
+            }
+        }
+    }
+
+    /** Pergunta como prosseguir (gate triplo) antes de explorar um dispositivo. */
+    private fun askExploitationGate(dev: com.vulnforgeai.app.data.ScanResult) {
+        if (prefs.confidentMode) {
+            runProtocolsAll(dev)
+            return
+        }
+        addMessage(
+            "Como quer proceder?",
+            "Defina o nível de confirmação para explorar ${dev.target}:",
+            isUser = false,
+            type = MessageType.PROMPT_BUTTONS,
+            actions = listOf("Com Stealth confirmado", "Pedir por protocolo", "Direto (sem confirmar)"),
+            device = dev
+        )
+    }
+
+    private fun runProtocolsAll(dev: com.vulnforgeai.app.data.ScanResult) {
+        runProtocol(dev.target, dev.protocols.ifEmpty { listOf("ftp", "http", "rtsp") })
+    }
+
+    private fun runProtocol(ip: String, protocols: List<String>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val results = withContext(Dispatchers.IO) {
+                wifiAnalyzer.testProtocols(ip, protocols, allowNoConfirmation = true)
+            }
+            networkResult.addAll(results)
+            withContext(Dispatchers.Main) {
+                results.forEach { r ->
+                    val markers = when {
+                        r.details.contains("funcionou", true) || r.details.contains("Extraiu", true) -> "🟢 "
+                        r.details.contains("aberto", true) -> "🟡 "
+                        else -> "⚪ "
+                    }
+                    addMessage(r.target, "${markers}${r.details}", isUser = false)
+                }
+                // Complemento #5 em andamento: persistência no Dossiê
+                results.forEach { dossier.addTarget(it.target, it.type, it.details, it.risk.name) }
+            }
+        }
+    }
+
+    private fun execCommand(command: String) {
+        addMessage("VulnForgeAI", toolExecutor.handle("$command", prefs.mode) ?: "Comando enviado.", isUser = false)
+    }
+
+    private fun addMessage(
+        sender: String, text: String, isUser: Boolean,
+        mode: ChatMode = ChatMode.APRENDIZ,
+        type: MessageType = MessageType.NORMAL,
+        risk: com.vulnforgeai.app.data.Risk = com.vulnforgeai.app.data.Risk.INFO,
+        actions: List<String> = emptyList(),
+        device: com.vulnforgeai.app.data.ScanResult? = null,
+        step: com.vulnforgeai.app.data.NextStep? = null
+    ) {
+        messages.add(ChatMessage(sender, text, isUser, type, mode, risk, actions = actions, device = device, step = step))
         adapter.notifyItemInserted(messages.size - 1)
         recyclerView.scrollToPosition(messages.size - 1)
     }

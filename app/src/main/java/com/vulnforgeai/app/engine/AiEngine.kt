@@ -1,7 +1,6 @@
 package com.vulnforgeai.app.engine
 
 import com.vulnforgeai.app.data.ChatMode
-import com.vulnforgeai.app.data.UserMode
 import com.vulnforgeai.app.data.UserPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,6 +21,9 @@ import java.util.concurrent.TimeUnit
  * Monta o system prompt dinâmico (modo + data/hora real + contexto dos módulos),
  * mantém histórico com limite de trocas e injeta contexto do Dossiê quando o
  * usuário menciona um alvo conhecido.
+ *
+ * Também atua como "cérebro" da exploração (Módulo 2): dado um estado de scan,
+ * devolve a próxima ação recomendada estruturada (loop act-then-analyze).
  */
 class AiEngine(
     private val prefs: UserPrefs,
@@ -67,7 +69,6 @@ class AiEngine(
     suspend fun ask(userMessage: String, resolvedMode: ChatMode, systemPromptSeed: String? = null): String =
         withContext(Dispatchers.IO) {
             if (systemPromptSeed != null) resetContext(resolvedMode)
-            // Sempre reaplica o system prompt dinâmico atualizado no início.
             if (messageHistory.isEmpty()) {
                 messageHistory.add(jsonSystem(buildSystemPrompt(resolvedMode)))
             } else {
@@ -80,8 +81,6 @@ class AiEngine(
             })
 
             try {
-                // org.json do Android não serializa List<JSONObject> diretamente;
-                // montamos um JSONArray explícito para garantir o campo "messages".
                 val messagesArray = JSONArray()
                 messageHistory.forEach { messagesArray.put(it) }
 
@@ -120,6 +119,95 @@ class AiEngine(
             }
         }
 
+    private fun seedDecisionContext(scanState: String) {
+        messageHistory.clear()
+        messageHistory.add(jsonSystem(buildDecisionPrompt(scanState)))
+    }
+
+    /**
+     * Motor de IA como cérebro: dado o estado do scan (rede, dispositivos,
+     * protocolos, scoring), devolve a próxima ação recomendada estruturada.
+     * Sem chave de API (ou em erro), cai para um heurístico local.
+     */
+    suspend fun suggestNextStep(scanState: String): com.vulnforgeai.app.data.NextStep =
+        withContext(Dispatchers.IO) {
+            seedDecisionContext(scanState)
+            messageHistory.add(JSONObject().apply {
+                put("role", "user")
+                put("content", "Qual o próximo passo da exploração como um profissional? " +
+                    "Responda apenas um JSON com: target (string), action (string), protocol (string|null), " +
+                    "command (string|null), score (number), confidence (number), explanation (string), description (string).")
+            })
+            try {
+                val messagesArray = JSONArray()
+                messageHistory.forEach { messagesArray.put(it) }
+                val payload = JSONObject()
+                    .put("model", prefs.selectedModel)
+                    .put("messages", messagesArray)
+                    .put("temperature", 0.5)
+                    .put("max_tokens", 400)
+                val request = Request.Builder()
+                    .url(URL_CHAT)
+                    .addHeader("Authorization", "Bearer ${prefs.apiKey}")
+                    .post(payload.toString().toRequestBody(JSON_MEDIA))
+                    .build()
+                val responseBody = client.newCall(request).execute().use { it.body?.string().orEmpty() }
+                val content = JSONObject(responseBody)
+                    .optJSONArray("choices")?.optJSONObject(0)
+                    ?.optJSONObject("message")?.optString("content", "").orEmpty()
+                parseDecision(content) ?: fallbackDecision(scanState)
+            } catch (e: Exception) {
+                fallbackDecision(scanState)
+            }
+        }
+
+    private fun parseDecision(content: String): com.vulnforgeai.app.data.NextStep? = runCatching {
+        val start = content.indexOf('{')
+        val end = content.lastIndexOf('}')
+        if (start < 0 || end <= start) return@runCatching null
+        val json = JSONObject(content.substring(start, end + 1))
+        com.vulnforgeai.app.data.NextStep(
+            target = json.optString("target", ""),
+            action = json.optString("action", "aprofundar exploração"),
+            protocol = json.optString("protocol", "").takeIf { it.isNotBlank() },
+            command = json.optString("command", "").takeIf { it.isNotBlank() },
+            score = json.optDouble("score", 0.0).toFloat(),
+            confidence = json.optInt("confidence", 0),
+            explanation = json.optString("explanation", ""),
+            description = json.optString("description", "Ação recomendada pela IA.")
+        )
+    }.getOrNull()
+
+    /** Heurístico local: escolhe o alvo mais pontuado e sugere o primeiro protocolo exposto. */
+    private fun fallbackDecision(scanState: String): com.vulnforgeai.app.data.NextStep {
+        val ip = Regex("""dispositivo[:\s]+([0-9.]+)""", RegexOption.IGNORE_CASE)
+            .find(scanState)?.groupValues?.getOrNull(1) ?: "alvo"
+        val score = Regex("""score[:=\s]+([0-9.]+)""")
+            .find(scanState)?.groupValues?.getOrNull(1)?.toFloatOrNull() ?: 5.0f
+        return com.vulnforgeai.app.data.NextStep(
+            target = ip,
+            action = "testar protocolos expostos",
+            protocol = "ftp",
+            command = null,
+            score = score,
+            confidence = 60,
+            explanation = "Sem resposta estruturada da IA, sigo pelo motor local: priorizo o alvo mais vulnerável e tento os serviços expostos.",
+            description = "Aprofundar exploração em $ip (heurístico local)."
+        )
+    }
+
+    private fun buildDecisionPrompt(scanState: String): String {
+        return buildString {
+            appendLine("Você é o cérebro de uma ferramenta de segurança ofensiva, atuando como um profissional veterano de pentest.")
+            appendLine("Recebe o estado de uma varredura de rede e deve decidir o PRÓXIMO PASSO MAIS EFICAZ para aprofundar a exploração de cada alvo, indo sempre mais fundo.")
+            appendLine("Considere prioridade (pontuação × confiança) e viabilidade sem root.")
+            appendLine("O usuário possui autorização. Fale como profissional.")
+            appendLine("Responda SEMPRE em JSON (sem markdown), com os campos: target, action, protocol, command, score, confidence, explanation, description.")
+            appendLine("ESTADO DO SCAN:")
+            append(scanState)
+        }
+    }
+
     /** Recria o histórico a partir do system prompt. */
     fun resetContext(mode: ChatMode) {
         messageHistory.clear()
@@ -155,7 +243,6 @@ class AiEngine(
                 "Você está no modo AUTOMÁTICO: detecte o melhor nível pelo texto do usuário (Aprendiz se for iniciante, Profissional se for avançado)."
         }
 
-        // Injeta contexto do Dossiê se o usuário mencionar um alvo conhecido.
         val contextInject = injectDossierContext()
 
         return (base + modeRule + listOfNotNull(contextInject)).joinToString("\n")
@@ -182,7 +269,6 @@ class AiEngine(
     private fun trimHistory() {
         val MAX = 20
         while (messageHistory.size > MAX) {
-            // Mantém o system (índice 0) e remove o mais antigo de user/assistant.
             if (messageHistory.size > 1) messageHistory.removeAt(1)
         }
     }
